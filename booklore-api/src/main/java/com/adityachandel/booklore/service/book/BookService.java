@@ -8,15 +8,19 @@ import com.adityachandel.booklore.model.dto.request.ReadProgressRequest;
 import com.adityachandel.booklore.model.dto.response.BookDeletionResponse;
 import com.adityachandel.booklore.model.dto.response.BookStatusUpdateResponse;
 import com.adityachandel.booklore.model.entity.BookEntity;
+import com.adityachandel.booklore.model.entity.BookFileEntity;
 import com.adityachandel.booklore.model.entity.LibraryPathEntity;
+import com.adityachandel.booklore.model.entity.UserBookFileProgressEntity;
 import com.adityachandel.booklore.model.entity.UserBookProgressEntity;
 import com.adityachandel.booklore.model.enums.BookFileType;
+import com.adityachandel.booklore.model.enums.BookFileType;
 import com.adityachandel.booklore.repository.*;
+import com.adityachandel.booklore.repository.BookFileRepository;
 import com.adityachandel.booklore.service.monitoring.MonitoringRegistrationService;
-import com.adityachandel.booklore.service.user.UserProgressService;
-import com.adityachandel.booklore.util.BookProgressUtil;
+import com.adityachandel.booklore.service.progress.ReadingProgressService;
 import com.adityachandel.booklore.util.FileService;
 import com.adityachandel.booklore.util.FileUtils;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.*;
@@ -26,7 +30,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,6 +48,7 @@ import java.util.stream.Collectors;
 public class BookService {
 
     private final BookRepository bookRepository;
+    private final BookFileRepository bookFileRepository;
     private final PdfViewerPreferencesRepository pdfViewerPreferencesRepository;
     private final CbxViewerPreferencesRepository cbxViewerPreferencesRepository;
     private final NewPdfViewerPreferencesRepository newPdfViewerPreferencesRepository;
@@ -53,7 +57,7 @@ public class BookService {
     private final UserBookProgressRepository userBookProgressRepository;
     private final AuthenticationService authenticationService;
     private final BookQueryService bookQueryService;
-    private final UserProgressService userProgressService;
+    private final ReadingProgressService readingProgressService;
     private final BookDownloadService bookDownloadService;
     private final MonitoringRegistrationService monitoringRegistrationService;
     private final BookUpdateService bookUpdateService;
@@ -74,14 +78,18 @@ public class BookService {
                 user.getId()
         );
 
+        Set<Long> bookIds = books.stream().map(Book::getId).collect(Collectors.toSet());
         Map<Long, UserBookProgressEntity> progressMap =
-                userProgressService.fetchUserProgress(
-                        user.getId(),
-                        books.stream().map(Book::getId).collect(Collectors.toSet())
-                );
+                readingProgressService.fetchUserProgress(user.getId(), bookIds);
+        Map<Long, UserBookFileProgressEntity> fileProgressMap =
+                readingProgressService.fetchUserFileProgress(user.getId(), bookIds);
 
         books.forEach(book -> {
-            BookProgressUtil.enrichBookWithProgress(book, progressMap.get(book.getId()));
+            readingProgressService.enrichBookWithProgress(
+                    book,
+                    progressMap.get(book.getId()),
+                    fileProgressMap.get(book.getId())
+            );
             book.setShelves(filterShelvesByUserId(book.getShelves(), user.getId()));
         });
 
@@ -92,15 +100,21 @@ public class BookService {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
 
         List<BookEntity> bookEntities = bookQueryService.findAllWithMetadataByIds(bookIds);
+        Set<Long> entityIds = bookEntities.stream().map(BookEntity::getId).collect(Collectors.toSet());
 
-        Map<Long, UserBookProgressEntity> progressMap = userProgressService.fetchUserProgress(
-                user.getId(), bookEntities.stream().map(BookEntity::getId).collect(Collectors.toSet()));
+        Map<Long, UserBookProgressEntity> progressMap =
+                readingProgressService.fetchUserProgress(user.getId(), entityIds);
+        Map<Long, UserBookFileProgressEntity> fileProgressMap =
+                readingProgressService.fetchUserFileProgress(user.getId(), entityIds);
 
         return bookEntities.stream().map(bookEntity -> {
             Book book = bookMapper.toBook(bookEntity);
-            book.setFilePath(FileUtils.getBookFullPath(bookEntity));
             if (!withDescription) book.getMetadata().setDescription(null);
-            BookProgressUtil.enrichBookWithProgress(book, progressMap.get(bookEntity.getId()));
+            readingProgressService.enrichBookWithProgress(
+                    book,
+                    progressMap.get(bookEntity.getId()),
+                    fileProgressMap.get(bookEntity.getId())
+            );
             return book;
         }).collect(Collectors.toList());
     }
@@ -109,13 +123,17 @@ public class BookService {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
         BookEntity bookEntity = bookRepository.findByIdWithBookFiles(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
 
-        UserBookProgressEntity userProgress = userBookProgressRepository.findByUserIdAndBookId(user.getId(), bookId).orElse(new UserBookProgressEntity());
+        UserBookProgressEntity userProgress = userBookProgressRepository.findByUserIdAndBookId(user.getId(), bookId)
+                .orElse(new UserBookProgressEntity());
+
+        // Fetch file-level progress for the book (most recent across all files)
+        UserBookFileProgressEntity fileProgress = readingProgressService
+                .fetchUserFileProgress(user.getId(), Set.of(bookId))
+                .get(bookId);
 
         Book book = bookMapper.toBook(bookEntity);
         book.setShelves(filterShelvesByUserId(book.getShelves(), user.getId()));
-        book.setLastReadTime(userProgress.getLastReadTime());
-        BookProgressUtil.enrichBookWithProgress(book, userProgress);
-        book.setFilePath(FileUtils.getBookFullPath(bookEntity));
+        readingProgressService.enrichBookWithProgress(book, userProgress, fileProgress);
 
         if (!withDescription) {
             book.getMetadata().setDescription(null);
@@ -125,13 +143,17 @@ public class BookService {
     }
 
 
-    public BookViewerSettings getBookViewerSetting(long bookId) {
+    public BookViewerSettings getBookViewerSetting(long bookId, long bookFileId) {
         BookEntity bookEntity = bookRepository.findByIdWithBookFiles(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
         BookLoreUser user = authenticationService.getAuthenticatedUser();
 
         BookViewerSettings.BookViewerSettingsBuilder settingsBuilder = BookViewerSettings.builder();
 
-        BookFileType bookType = bookEntity.getPrimaryBookFile().getBookType();
+        BookFileEntity bookFile = bookEntity.getBookFiles().stream()
+                .filter(bf -> bf.getId().equals(bookFileId))
+                .findFirst()
+                .orElseThrow(() -> ApiError.FILE_NOT_FOUND.createException("Book file not found: " + bookFileId));
+        BookFileType bookType = bookFile.getBookType();
         if (bookType == BookFileType.EPUB || bookType == BookFileType.FB2
                 || bookType == BookFileType.MOBI
                 || bookType == BookFileType.AZW3) {
@@ -190,7 +212,7 @@ public class BookService {
 
     @Transactional
     public void updateReadProgress(ReadProgressRequest request) {
-        bookUpdateService.updateReadProgress(request);
+        readingProgressService.updateReadProgress(request);
     }
 
     @Transactional
@@ -239,20 +261,38 @@ public class BookService {
         return bookDownloadService.downloadBook(bookId);
     }
 
+    public void downloadAllBookFiles(Long bookId, HttpServletResponse response) {
+        bookDownloadService.downloadAllBookFiles(bookId, response);
+    }
+
     public ResponseEntity<InputStreamResource> getBookContent(long bookId) throws IOException {
+        return getBookContent(bookId, null);
+    }
+
+    public ResponseEntity<InputStreamResource> getBookContent(long bookId, String bookType) throws IOException {
         BookEntity bookEntity = bookRepository.findById(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
-        String bookPath = FileUtils.getBookFullPath(bookEntity);
+        String filePath;
         Instant lastModified = null;
+        if (bookType != null) {
+            BookFileType requestedType = BookFileType.valueOf(bookType.toUpperCase());
+            BookFileEntity bookFile = bookEntity.getBookFiles().stream()
+                    .filter(bf -> bf.getBookType() == requestedType)
+                    .findFirst()
+                    .orElseThrow(() -> ApiError.FILE_NOT_FOUND.createException("No file of type " + bookType + " found for book"));
+            filePath = bookFile.getFullFilePath().toString();
+        } else {
+            filePath = FileUtils.getBookFullPath(bookEntity);
+        }
 
         try {
-            lastModified = Files.getLastModifiedTime(Paths.get(bookPath)).toInstant();
+            lastModified = Files.getLastModifiedTime(Paths.get(filePath)).toInstant();
         } catch (IOException ignored) {}
 
         return ResponseEntity.ok()
-            .cacheControl(CacheControl.noCache())
-            .lastModified(lastModified != null ? lastModified : Instant.now()) // Fallback to now
-            .contentType(MediaType.APPLICATION_OCTET_STREAM)
-            .body(new InputStreamResource(new FileInputStream(bookPath)));
+                .cacheControl(CacheControl.noCache())
+                .lastModified(lastModified != null ? lastModified : Instant.now()) // Fallback to now
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(new InputStreamResource(new FileInputStream(filePath)));
     }
 
     @Transactional
@@ -260,8 +300,8 @@ public class BookService {
         List<BookEntity> books = bookQueryService.findAllWithMetadataByIds(ids);
         List<Long> failedFileDeletions = new ArrayList<>();
         for (BookEntity book : books) {
-            List<Path> fullFilePaths = book.getFullFilePaths();
-            for (Path fullFilePath : fullFilePaths) {
+            for (BookFileEntity bookFile : book.getBookFiles()) {
+                Path fullFilePath = bookFile.getFullFilePath();
                 try {
                     if (Files.exists(fullFilePath)) {
                         try {
@@ -269,8 +309,15 @@ public class BookService {
                         } catch (Exception ex) {
                             log.warn("Failed to unregister monitoring for path: {}", fullFilePath.getParent(), ex);
                         }
-                        Files.delete(fullFilePath);
-                        log.info("Deleted book file: {}", fullFilePath);
+
+                        // Handle folder-based audiobooks (delete directory recursively)
+                        if (bookFile.isFolderBased() && Files.isDirectory(fullFilePath)) {
+                            deleteDirectoryRecursively(fullFilePath);
+                            log.info("Deleted folder-based audiobook: {}", fullFilePath);
+                        } else {
+                            Files.delete(fullFilePath);
+                            log.info("Deleted book file: {}", fullFilePath);
+                        }
 
                         Set<Path> libraryRoots = book.getLibrary().getLibraryPaths().stream()
                                 .map(LibraryPathEntity::getPath)
@@ -294,6 +341,16 @@ public class BookService {
         return failedFileDeletions.isEmpty()
                 ? ResponseEntity.ok(response)
                 : ResponseEntity.status(HttpStatus.MULTI_STATUS).body(response);
+    }
+
+    private void deleteDirectoryRecursively(Path path) throws IOException {
+        if (!Files.exists(path)) return;
+
+        try (var walk = Files.walk(path)) {
+            walk.sorted(java.util.Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(java.io.File::delete);
+        }
     }
 
     public void deleteEmptyParentDirsUpToLibraryFolders(Path currentDir, Set<Path> libraryRoots) {
@@ -362,11 +419,12 @@ public class BookService {
         }
     }
 
-    private Set<Shelf> filterShelvesByUserId(Set<Shelf> shelves, Long userId) {
+    public Set<Shelf> filterShelvesByUserId(Set<Shelf> shelves, Long userId) {
         if (shelves == null) return Collections.emptySet();
         return shelves.stream()
                 .filter(shelf -> userId.equals(shelf.getUserId()))
                 .collect(Collectors.toSet());
     }
+
 }
 
