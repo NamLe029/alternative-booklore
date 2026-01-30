@@ -40,24 +40,24 @@ public class CronService {
 
     @Scheduled(fixedDelay = 24, timeUnit = TimeUnit.HOURS, initialDelay = 24)
     public void sendTelemetryData() {
-        AppSettings settings = appSettingService.getAppSettings();
-        if (settings != null && settings.isTelemetryEnabled()) {
-            String url = appProperties.getTelemetry().getBaseUrl() + "/api/v1/ingest";
-            BookloreTelemetry telemetry = telemetryService.collectTelemetry();
-            if (postData(url, telemetry)) {
-                appSettingService.saveSetting(LAST_TELEMETRY_KEY, Instant.now().toString());
-            }
-        }
+//        AppSettings settings = appSettingService.getAppSettings();
+//        if (settings != null && settings.isTelemetryEnabled()) {
+//            String url = appProperties.getTelemetry().getBaseUrl() + "/api/v1/ingest";
+//            BookloreTelemetry telemetry = telemetryService.collectTelemetry();
+//            if (postData(url, telemetry)) {
+//                appSettingService.saveSetting(LAST_TELEMETRY_KEY, Instant.now().toString());
+//            }
+//        }
     }
 
     @Scheduled(fixedDelay = 24, timeUnit = TimeUnit.HOURS, initialDelay = 12)
     public void sendPing() {
-        String url = appProperties.getTelemetry().getBaseUrl() + "/api/v1/heartbeat";
-        InstallationPing ping = telemetryService.getInstallationPing();
-        if (ping != null && postData(url, ping)) {
-            appSettingService.saveSetting(LAST_PING_KEY, Instant.now().toString());
-            appSettingService.saveSetting(LAST_PING_APP_VERSION_KEY, ping.getAppVersion());
-        }
+//        String url = appProperties.getTelemetry().getBaseUrl() + "/api/v1/heartbeat";
+//        InstallationPing ping = telemetryService.getInstallationPing();
+//        if (ping != null && postData(url, ping)) {
+//            appSettingService.saveSetting(LAST_PING_KEY, Instant.now().toString());
+//            appSettingService.saveSetting(LAST_PING_APP_VERSION_KEY, ping.getAppVersion());
+//        }
     }
 
     protected boolean postData(String url, Object body) {

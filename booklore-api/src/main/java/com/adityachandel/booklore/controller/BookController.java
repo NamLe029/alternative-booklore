@@ -102,7 +102,7 @@ public class BookController {
     @ApiResponse(responseCode = "200", description = "Book content returned successfully")
     @GetMapping("/{bookId}/content")
     @CheckBookAccess(bookIdParam = "bookId")
-    public ResponseEntity<ByteArrayResource> getBookContent(@Parameter(description = "ID of the book") @PathVariable long bookId) throws IOException {
+    public ResponseEntity<Resource> getBookContent(@Parameter(description = "ID of the book") @PathVariable long bookId) throws IOException {
         return bookService.getBookContent(bookId);
     }
 

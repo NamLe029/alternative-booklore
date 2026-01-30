@@ -316,7 +316,7 @@ class BookServiceTest {
     }
 
     @Test
-    void getBookContent_returnsByteArrayResource() throws Exception {
+    void getBookContent_readble() throws Exception {
         BookEntity entity = new BookEntity();
         entity.setId(10L);
         when(bookRepository.findById(10L)).thenReturn(Optional.of(entity));
@@ -324,9 +324,10 @@ class BookServiceTest {
         Files.write(path, "hello".getBytes());
         try (MockedStatic<FileUtils> fileUtilsMock = mockStatic(FileUtils.class)) {
             fileUtilsMock.when(() -> FileUtils.getBookFullPath(entity)).thenReturn(path.toString());
-            ResponseEntity<ByteArrayResource> response = bookService.getBookContent(10L);
+            ResponseEntity<Resource> response = bookService.getBookContent(10L);
             assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertArrayEquals("hello".getBytes(), response.getBody().getByteArray());
+            assertNotNull(response.getBody());
+            assertArrayEquals("hello".getBytes(), response.getBody().getContentAsByteArray());
         } finally {
             Files.deleteIfExists(path);
         }
