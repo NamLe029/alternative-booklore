@@ -1,8 +1,18 @@
+# Alternative BookLore
+
+A version of BookLore with various modifications:
+
+- Enable HTTP caching for downloading book content for browser reading.
+- Support for local Docker image building.
+- Disable telemetry and update checks.
+
+## BookLore README.md below
+
 <div align="center">
 
 # 📚 BookLore
 
-### *Your Personal Library, Beautifully Organized*
+### _Your Personal Library, Beautifully Organized_
 
 **🌐 Official Website: [https://booklore.org](https://booklore.org/)**
 
@@ -141,7 +151,7 @@ Share BookLore with fellow book lovers and developers!
 Experience BookLore's features in a live environment before deploying your own instance!
 
 | 🌐 Demo URL                                        | 👤 Username | 🔑 Password        |
-|----------------------------------------------------|-------------|--------------------|
+| -------------------------------------------------- | ----------- | ------------------ |
 | **[demo.booklore.org](https://demo.booklore.org)** | `booklore`  | `9HC20PGGfitvWaZ1` |
 
 > ⚠️ **Note:** Demo account has standard user permissions only.  
@@ -167,7 +177,7 @@ Guides for installation, setup, features, and more
 
 [![Read the Docs](https://img.shields.io/badge/📖_Read_the_Docs-4c6ef5?style=for-the-badge)](https://booklore.org/docs/getting-started)
 
-*Contribute to the docs at: [booklore-docs](https://github.com/booklore-app/booklore-docs)*
+_Contribute to the docs at: [booklore-docs](https://github.com/booklore-app/booklore-docs)_
 
 </td>
 <td align="center" width="50%">
@@ -178,7 +188,7 @@ Get up and running in minutes with Docker
 
 [![Deploy with Docker](https://img.shields.io/badge/🐳_Deploy_Now-2496ED?style=for-the-badge)](#-deploy-with-docker)
 
-*Easiest way to self-host BookLore*
+_Easiest way to self-host BookLore_
 
 </td>
 </tr>
@@ -282,7 +292,7 @@ services:
       - ./mariadb/config:/config
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -308,7 +318,7 @@ Open your browser and navigate to:
 
 ## 📥 **BookDrop: Automatic Import**
 
-### *Drop Files, Import Automatically*
+### _Drop Files, Import Automatically_
 
 </div>
 
@@ -338,7 +348,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./books:/books
-      - ./bookdrop:/bookdrop  # 👈 BookDrop magic happens here
+      - ./bookdrop:/bookdrop # 👈 BookDrop magic happens here
 ```
 
 ---
@@ -346,6 +356,7 @@ services:
 <div align="center">
 
 ## 🤝 **Community & Support**
+
 <table>
 <tr>
 <td align="center">
@@ -388,7 +399,6 @@ Join community!
 </table>
 
 </div>
-
 
 ---
 
@@ -442,7 +452,7 @@ Join community!
   <img src="https://docs.elfhosted.com/images/logo.svg" alt="ElfHosted" height="40">
 </a>
 
-*Become a sponsor and get your logo here! [Support us on Open Collective](https://opencollective.com/booklore)*
+_Become a sponsor and get your logo here! [Support us on Open Collective](https://opencollective.com/booklore)_
 
 </div>
 
@@ -456,8 +466,7 @@ Join community!
 
 Copyright © 2024-2026 BookLore
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/agpl-3.0.html)
----
+## [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/agpl-3.0.html)
 
 <sub>Made with ❤️ by the BookLore community</sub>
 
