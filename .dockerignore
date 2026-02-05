@@ -1,0 +1,70 @@
+
+docs
+example-*
+*.env
+*.md
+
+## Angular ###
+booklore-ui/node_modules
+booklore-ui/npm-debug.log
+booklore-ui/yarn-error.log
+booklore-ui/dist
+booklore-ui/tmp
+booklore-ui/out-tsc
+booklore-ui/bazel-out
+booklore-ui/.angular
+booklore-ui/.editorconfig
+
+### Git ###
+**/.git
+**/.gitignore
+**/.gitattributes
+**/.github
+
+## MacOS ###
+**/.DS_Store
+
+### STS ###
+**/.apt_generated
+**/.classpath
+**/.factorypath
+**/.project
+**/.settings
+**/.springBeans
+**/.sts4-cache
+**/bin
+
+### IntelliJ IDEA ###
+**/.idea
+**/*.iws
+**/*.iml
+**/*.ipr
+**/out/
+
+### NetBeans ###
+**/nbproject/private/
+**/nbbuild/
+**/dist/
+**/nbdist/
+**/.nb-gradle/
+
+### Java ###
+booklore-api/.gradle
+booklore-api/build
+
+### VS Code ###
+**/.vscode/
+**/local/
+**/local-scripts/
+
+### Dev config, books, and data ###
+booklore-ui/test-results/
+booklore-api/src/main/resources/application-local.yaml
+shared/
+
+### Docker ###
+**/Dockerfile
+**/Dockerfile.*
+**/docker-compose.yml
+**/docker-compose.*.yml
+**/.dockerignore
